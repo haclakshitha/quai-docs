@@ -166,84 +166,6 @@ Hardhat uses `hardhat.config.js` to configure smart contract deployments. The co
 
 Paste the following code into your `hardhat.config.js` file to configure deployments to either the `colosseum`, `garden`, or `local` networks.
 
-```javascript title="hardhat.config.js"
-/**
- * @type import('hardhat/config').HardhatUserConfig
- */
-
-require('@nomicfoundation/hardhat-toolbox');
-const dotenv = require('dotenv');
-dotenv.config({ path: '.env' });
-
-module.exports = {
-  defaultNetwork: 'colosseum',
-  networks: {
-    // testnet
-    colosseum: {
-      url: `${process.env.RPCURL}`,
-      accounts: [process.env.PRIVKEY],
-      chainId: 9000, // colosseum chainId
-    },
-    // devnet
-    garden: {
-      url: `${process.env.RPCURL}`,
-      accounts: [process.env.PRIVKEY],
-      chainId: 12000, // garden chainId
-    },
-
-    // local
-    local: {
-      url: `${process.env.RPCURL}`,
-      accounts: [process.env.PRIVKEY],
-      chainId: 1337, // local chainId
-    },
-  },
-
-  // include compiler version defined in your smart contract
-  solidity: {
-    compilers: [
-      {
-        version: '0.8.9',
-      },
-    ],
-  },
-
-  paths: {
-    sources: './contracts',
-    cache: './cache',
-    artifacts: './artifacts',
-  },
-  mocha: {
-    timeout: 20000,
-  },
-};
-```
-
-## Deploy
-
-### Compile with Hardhat
-
-Smart contract compilation with Hardhat is simple and can be done using `npx` in the CLI.
-
-Compile the `Greeter.sol` contract using:
-
-```bash
-npx hardhat compile
-```
-
-Which should output:
-
-```bash
-Downloading compiler 0.8.9
-
-Compiled 1 Solidity file successfully
-```
-
-### Add Deployment Script
-
-The Hardhat sample project has a pre-made deployment script named `deploy.js` in the `scripts` directory. Copy the following into the `deploy.js` file.
-
-```javascript title="deploy.js"
 const quais = require('quais');
 const { pollFor } = require('quais-polling');
 const GreeterJson = require('../artifacts/contracts/Greeter.sol/Greeter.json');
@@ -275,7 +197,78 @@ main()
     console.error(error);
     process.exit(1);
   });
+
+
+
+  
+  },
+
+  // include compiler version defined in your smart contract
+  solidity: {
+    compilers: [
+      {
+        version: '0.8.9',
+      },
+    ],
+  },
+
+  paths: {
+    sources: './contracts',
+    cache: './cache',
+    artifacts: './artifacts',
+  },
+  mocha: {
+    timeout: 20000,
+  },
+};
 ```
+
+npx hardhat run scripts/deploy.js --network colosseum
+```
+
+Which should output:
+
+```bash
+Downloading compiler 0.8.9
+
+Compiled 1 Solidity file successfully
+```
+
+### Add Deployment Script
+
+The Hardhat sample project has a pre-made deployment script named `deploy.js` in the `scripts` directory. Copy the following into the `deploy.js` file.
+
+const quais = require('quais');
+const { pollFor } = require('quais-polling');
+const GreeterJson = require('../artifacts/contracts/Greeter.sol/Greeter.json');
+
+async function main() {
+  const quaisProvider = new quais.providers.JsonRpcProvider(hre.network.config.url);
+  const walletWithProvider = new quais.Wallet(hre.network.config.accounts[0], quaisProvider);
+  await quaisProvider.ready;
+
+  const QuaisContract = new quais.ContractFactory(GreeterJson.abi, GreeterJson.bytecode, walletWithProvider);
+  const quaisContract = await QuaisContract.deploy('Hello Quai', {
+    gasLimit: 1000000,
+  });
+
+  // Use quais-polling to wait for contract to be deployed
+  const deployReceipt = await pollFor(
+    quaisProvider, // provider passed to poller
+    'getTransactionReceipt', // method to call on provider
+    [quaisContract.deployTransaction.hash], // params to pass to method
+    1.5, // initial polling interval in seconds
+    1 // request timeout in seconds
+  );
+  console.log('Contract deployed to address: ', deployReceipt.contractAddress);
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch(error => {
+    console.error(error);
+    process.exit(1);
+  });
 
 Using `deploy.js`, we can set the initial greeting and log out the contract address upon deployment. Scripts can be used to automate many different functions other than deployment.
 
@@ -289,9 +282,7 @@ npx hardhat run scripts/deploy.js --network colosseum
 
 Which should output:
 
-```bash
 Contract deployed to address: 0x13d8c5fc0AB5A87870353f3C0409c102f2a772A9
-```
 
 Congratulations, you've now deployed a simple smart contract to Quai Network!
 
